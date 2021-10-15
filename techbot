@@ -1,0 +1,73 @@
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+
+
+dftrain = pd.read_csv('train.csv') 
+dftest = pd.read_csv('test.csv') 
+
+y_train = dftrain.pop('chanceyChancey')
+y_test = dftest.pop('chanceyChancey')
+
+
+CATEGORICAL_COLUMNS = ['SmokingStatus', 'Gender'] 
+NUMERICAL_COLUMNS = ['Age', 'Weight'] 
+
+feature_columns = [] 
+
+for feature_name in CATEGORICAL_COLUMNS:
+    vocabulary = dftrain[feature_name].unique() 
+    feature_columns.append(tf.feature_column.categorical_column_with_vocabulary_list(feature_name, vocabulary)) 
+
+
+for feature_name in NUMERICAL_COLUMNS:
+    feature_columns.append(tf.feature_column.numeric_column(feature_name, dtype=tf.float32)) 
+
+print(feature_columns)
+
+
+def make_input_fn(data_df, label_df, num_epochs=10, shuffle=True, batch_size=32):
+  def input_function(): 
+    ds = tf.data.Dataset.from_tensor_slices((dict(data_df), label_df)) 
+    if shuffle:
+      ds = ds.shuffle(1000) 
+    ds = ds.batch(batch_size).repeat(num_epochs) 
+    return ds 
+  return input_function 
+train_input_fn = make_input_fn(dftrain, y_train) 
+test_input_fn = make_input_fn(dftest, y_test, num_epochs=1, shuffle=False)
+
+
+linear_est = tf.estimator.LinearClassifier(feature_columns=feature_columns) 
+
+
+linear_est.train(train_input_fn) 
+result = linear_est.evaluate(test_input_fn) 
+
+
+
+print(result['accuracy']) 
+
+
+
+result = list(linear_est.predict(test_input_fn))
+
+print(dftest.loc[1]) 
+
+if result[1]['probabilities'][1] >= 0.5:
+    print("That person has a High chance of infertility.")
+else:
+    print("That person has a Low chance of infertfility.")
+
+
+def input_fn(features, batch_size=256): 
+#Convert the inputs to a dataset without labels - we don't know the labels, the model should give us the answer
+    return tf.data.Dataset.from_tensor_slices(dict(features)).batch(batch_size)
+
+OUTPUTS = ['0', '1']
+features = ['SmokingStatus', 'Gender', 'Age', 'Weight']
+predict = {} #dict
+
+print("Please type your information as follows.")
+for feature in features:
+    val = input(feature + ": ")
